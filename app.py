@@ -283,11 +283,20 @@ color_dict = {
     "Sakura (櫻花粉彩)": px.colors.qualitative.Pastel1,
     "RdPu (莓果粉紫漸層)": px.colors.sequential.RdPu,
     "Blues (純淨藍)": px.colors.sequential.Blues,
-    # ⬇️ 🌟 完美比例：甜美又不刺眼的泡泡糖粉紅色系 🌟 ⬇️
     "BubbleGum (泡泡糖粉紅)": [
         "#FF91AF", "#FFA4BA", "#FF7CA0", "#FF6690", "#FFB7C9", 
         "#E5537D", "#FFC9D7", "#CC406A", "#FF86A7", "#FFAEC0",
         "#D44973", "#FFBACB", "#B8325C", "#FFA9BD", "#FF9EBC"
+    ],
+    "RosePink (質感玫瑰粉)": [
+        "#EC879E", "#F09AAB", "#E2738E", "#D25D78", "#F5B0BD", 
+        "#C14761", "#F9C5CC", "#B0324B", "#DE6B84", "#EAA0B1",
+        "#C9546E", "#F3AEBC", "#A2233D", "#E68197", "#EE96A9"
+    ],
+    "Morandi (莫蘭迪色系)": [
+        "#B5C4B1", "#9FA8A3", "#C5B358", "#8A9A86", "#E8DCC4", 
+        "#A3B18A", "#588157", "#3A5A40", "#DAD7CD", "#BDB2FF",
+        "#FFC6FF", "#E8AEB7", "#B8C0FF", "#A3C4BC", "#BFD8BD"
     ]
 }
 
