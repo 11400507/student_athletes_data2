@@ -283,6 +283,11 @@ color_dict = {
     "Sakura (櫻花粉彩)": px.colors.qualitative.Pastel1,      # 內含非常漂亮的粉紅、粉藍與櫻花色調
     "RdPu (莓果粉紫漸層)": px.colors.sequential.RdPu,         # 從亮粉紅到深紫紅的專業漸層，非常適合樹狀圖
     "Blues (純淨藍)": px.colors.sequential.Blues             # 備用純色漸層
+    "HotPink (活力桃紅)": [
+        "#FF1493", "#FF69B4", "#FF00FF", "#C71585", "#DB7093", 
+        "#E600A9", "#FF5EA7", "#FF85BF", "#A60067", "#8B008B",
+        "#BA55D3", "#DA70D6", "#FFB6C1", "#FFC0CB", "#FA8072"
+    ]
 }
 
 # ==========================================
