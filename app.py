@@ -342,7 +342,7 @@ def render_page_1(f_df):
             st.info("💡 請在左側勾選題目以生成旭日圖。")
 
 # ==========================================
-# 頁面 2: 自選單題動態探索 (字串數字智慧排序版)
+# 頁面 2: 自選單題動態探索 (完結圖例排序 Bug 版)
 # ==========================================
 def render_page_2(f_df):
     st.header("📊 自選單題動態探索")
@@ -365,27 +365,23 @@ def render_page_2(f_df):
             q_counts = f_df[q].value_counts().reset_index()
             q_counts.columns = ['代碼', '次數']
             
-            # 2. 進行中文選項翻譯 (此時會產生 "1一月"、"10十月"、"99 (不適用/未填)" 等)
+            # 2. 進行中文選項翻譯
             q_counts['選項代碼 / 數值'] = q_counts['代碼'].apply(lambda x: translate_value(q, x))
             
-            # 3. 🌟 智慧排序核心：利用正則表達式抽出字串最開頭的連續數字
-            # 例如: "1一月" -> 1.0, "10十月" -> 10.0, "-1比較少" -> -1.0
+            # 3. 智慧排序核心：利用正則表達式抽出字串最開頭的連續數字
             q_counts['sort_num'] = q_counts['選項代碼 / 數值'].str.extract(r'^(-?\d+)').astype(float)
-            
-            # 防呆：如果有些選項開頭真的沒數字（雖然你說都有），就給它一個極大值放到最後
             q_counts['sort_num'] = q_counts['sort_num'].fillna(9999)
             
-            # 4. 依照提取出來的真正「數字大小」進行精準排序
+            # 4. 依照提取出來的真正數字大小進行精準排序 (1 < 2 < 10 < 11 < 12)
             q_counts = q_counts.sort_values(by='sort_num', ascending=True)
             
-            # 如果是水平長條圖，Plotly 預設由下往上畫，我們將 DataFrame 反轉能讓圖表從上到下呈現 1,2,3,4...
+            # 如果是水平長條圖，DataFrame 反轉能讓圖表從上到下呈現 1,2,3...
             if chart_type == "水平長條圖 (Horizontal Bar)":
                 q_counts = q_counts.iloc[::-1]
 
             # ---- 進入繪圖邏輯 ----
             if chart_type == "直立長條圖 (Bar)":
                 fig = px.bar(q_counts, x='選項代碼 / 數值', y='次數', text='次數', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
-                # categoryorder='trace' 會嚴格遵守我們上面用 Pandas 排好的數字順序
                 fig.update_layout(xaxis={'type': 'category', 'categoryorder': 'trace'}, showlegend=False)
                 
             elif chart_type == "水平長條圖 (Horizontal Bar)":
@@ -395,6 +391,8 @@ def render_page_2(f_df):
             elif chart_type in ["圓餅圖 (Pie)", "甜甜圈圖 (Donut)"]:
                 fig = px.pie(q_counts, names='選項代碼 / 數值', values='次數', hole=(0.4 if "Donut" in chart_type else 0), color_discrete_sequence=color_dict[color_theme])
                 fig.update_traces(textinfo='percent+label')
+                # 🛠️ 加上這行，右側圖例就不會再按照大小亂排了！
+                fig.update_layout(legend={'categoryorder': 'trace'})
                 
             else:
                 fig = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_dict[color_theme])
