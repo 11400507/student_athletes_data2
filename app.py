@@ -1,20 +1,270 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np
+import gc
 
 # 1. 設定頁面與標題
 st.set_page_config(page_title="學生運動員調查數據儀表板", page_icon="📊", layout="wide")
-st.title("📊 國科會學生運動員調查資料分析")
+st.title("📊 學生運動員調查資料分析 (GOALS-TW)")
+st.write(" 國科會NSTC 114-2410-H-022-MY2")
 
-# 2. 讀取資料並進行編碼轉換
+# ==========================================
+# 📖 全域題號與中文對照字典 (100% 完整版：v1 ~ v75)
+# ==========================================
+full_q_dict = {
+    'v1': '參加的運動項目',
+    'v2_1': '你會如何描述自己？(臺灣人)', 'v2_2': '你會如何描述自己？(原住民)', 'v2_3': '你會如何描述自己？(新住民)',
+    'v3': '在主要運動中的目前狀態',
+    'v4': '今年是否獲得任何形式的運動獎學金',
+    'v5': '成為該運動職業選手/奧運選手的可能性',
+    'v6_1': '我認為自己是一名積極的運動員', 'v6_2': '我認為自己是一名積極的學生', 'v6_3': '我在運動方面有許多個人目標',
+    'v6_4': '我在學業方面有許多個人目標', 'v6_5': '需在運動追求上表現出色，才能感到滿意', 'v6_6': '需在學術追求上表現出色，才能感到滿意',
+    'v6_7': '運動經驗是整體大學經驗中重要的一部分', 'v6_8': '學術經驗是整體大學經驗中重要的一部分', 'v6_9': '即使不是運動員，仍然會去唸某所四年制大學',
+    'v7': '目前的學業身分',
+    'v8': '是否轉學到目前這所學校就讀',
+    'v9_1': '轉學原因：我沒有轉學', 'v9_2': '轉學原因：學業因素', 'v9_3': '轉學原因：運動因素',
+    'v9_4': '轉學原因：醫療因素', 'v9_5': '轉學原因：財務因素', 'v9_6': '轉學原因：家庭/個人因素',
+    'v10': '若不是學生運動員，還會選擇現在的主修嗎',
+    'v11': '參與校隊/運動是否曾阻礙選擇真正想唸的主修',
+    'v12': '參與校隊/運動是否曾讓你無法修你想修的課',
+    'v13': '教練或師長是否曾勸退你不要選修某些課程',
+    'v14_1': '在大學課程中所付出的努力 (感受)', 'v14_2': '在運動賽季期間跟上課業進度的能力 (感受)', 'v14_3': '從大學順利畢業的可能性 (感受)',
+    'v14_4': '整體的大學學業經驗 (感受)', 'v14_5': '整體的大學運動經驗 (感受)',
+    'v15_1': '在校園上修讀傳統實體課程是重要的一部分', 'v15_2': '已與至少一位教師建立密切關係',
+    'v16': '是否曾參與或計畫參與留/遊學課程',
+    'v17_1': '完成學位需多久：四年或更短', 'v17_2': '完成學位需多久：超過四年(運動原因)', 'v17_3': '完成學位需多久：超過四年(學業/轉學)',
+    'v17_4': '完成學位需多久：超過四年(醫療原因)', 'v17_5': '完成學位需多久：超過四年(財務原因)', 'v17_6': '完成學位需多久：超過四年(家庭/個人)', 'v17_7': '完成學位需多久：不太可能獲得學位',
+    'v18': '離開大學第一年的打算',
+    'v19': '預期畢業後的工作會涉及運動嗎',
+    'v20': '畢業後攻讀研究所的可能性',
+    'v21_1': '我在這所大學有歸屬感', 'v21_2': '身為運動員幫助我在這所大學社交上更融入', 'v21_3': '我在這所大學經常與非運動員社交', 'v21_4': '我能在學業與課外活動之間找到適當平衡',
+    'v22': '最要好的朋友中有多少人是隊友',
+    'v23': '學期中目前與誰同住',
+    'v24': '參與服務計畫或志工活動時間',
+    'v25': '是否被要求將志工活動作為運動參與的一部分',
+    'v26_1': '教練為所有隊員建立包容環境', 'v26_2': '教練和隊友能接納不同觀點與文化', 'v26_3': '教練和隊友尊重不同種族/族群的人',
+    'v27_1': '總教練樹立正確做事方式榜樣', 'v27_2': '總教練認為成功是要公平地贏', 'v27_3': '總教練將隊員最大利益放在心上', 'v27_4': '總教練值得信任', 'v27_5': '總教練會傾聽隊員意見', 'v27_6': '總教練平等對待所有隊員',
+    'v28_1': '總教練會在他人面前貶低我', 'v28_2': '總教練會嘲笑我', 'v28_3': '總教練會向別人對我做負面評論',
+    'v29_1': '球隊風氣：領導能力', 'v29_2': '球隊風氣：團隊合作', 'v29_3': '球隊風氣：對社區服務的承諾', 'v29_4': '球隊風氣：對不同種族與背景的理解', 'v29_5': '球隊風氣：目標設定', 'v29_6': '球隊風氣：時間管理', 'v29_7': '球隊風氣：工作倫理/態度', 'v29_8': '球隊風氣：應對改變的能力', 'v29_9': '球隊風氣：為自己負責的能力', 'v29_10': '球隊風氣：注重細節', 'v29_11': '球隊風氣：自信心',
+    'v30_1': '就讀原因：學術課程/名聲', 'v30_2': '就讀原因：可參與校隊運動', 'v30_3': '就讀原因：學費與成本', 'v30_4': '就讀原因：能培養運動能力的好地方', 'v30_5': '就讀原因：上場時間/比賽機會', 'v30_6': '就讀原因：對這支球隊有強烈連結感', 'v30_7': '離家/親友近', 'v30_8': '就讀原因：社交風氣/朋友就讀', 'v30_9': '就讀原因：父母/老師期望', 'v30_10': '就讀原因：有特定教練任教', 'v30_11': '就讀原因：體育設施品質', 'v30_12': '就讀原因：球隊所屬賽事分級',
+    'v31_1': '期望準確度：運動經驗', 'v31_2': '期望準確度：學業經驗', 'v31_3': '期望準確度：社交經驗', 'v31_4': '期望準確度：時間負擔',
+    'v32_1': '我很高興自己選擇來這所學校', 'v32_2': '即使換教練仍然會就讀這所大學', 'v32_3': '若目前的教練離開會考慮轉學', 'v32_4': '會把這所大學推薦給高中學生運動員',
+    'v33': '註冊前是否曾參觀過校園',
+    'v34': '第一位大學教練是在幾年級時聯繫你',
+    'v35': '幾年級決定或承諾要就讀這所大學',
+    'v36_1': '大学運動員招募過程是正面的經驗', 'v36_2': '招募期間大學教練聯繫我太頻繁', 'v36_3': '招募時大學教練說的球隊角色與實際相符', 'v36_4': '招募時大學教練說的學業選擇與實際相符',
+    'v37': '從幾歲開始参加主要運動項目的比賽',
+    'v38': '從幾歲開始專注於主要運動項目',
+    'v39_1': '高中參加隊伍：高中校隊', 'v39_2': '高中參加隊伍：社團球隊/菁英隊', 'v39_3': '高中參加隊伍：國家代表隊',
+    'v40': '上大學前是否曾因運動發展搬家',
+    'v41_1': '高中校隊在成為運動員發展中扮演重要角色', 'v41_2': '社團球隊在成為運動員發展中扮演重要角色', 'v41_3': '喜歡自己在高中校隊的經驗', 'v41_4': '喜歡自己在社團球隊的經驗', 'v41_5': '進入大學前參加的比賽太多', 'v41_6': '希望成長過程中能有更多時間參與其他運動',
+    'v42_1': '家人期望：成為學生運動員', 'v42_2': '家人期望：成為職業或奧運運動員', 'v42_3': '家人期望：獲得大學學位',
+    'v43_1': '過去30天症狀：頭痛', 'v43_2': '過去30天症狀：影響日常的其他疼痛', 'v43_3': '過去30天症狀：感冒/流感', 'v43_4': '過去30天症狀：睡眠困難',
+    'v44_1': '因傷開刀/休養次數：在大學期間', 'v44_2': '因傷開刀/休養次數：在進入大學之前',
+    'v45': '目前是否因長期傷病無法參加比賽',
+    'v46_1': '教練關心我的身體健康', 'v46_2': '教練關心我的心理健康', 'v46_3': '與教練談論身體健康問題很自在', 'v46_4': '與教練談論心理健康問題很自在',
+    'v47_1': '醫療照護滿意度：身體健康問題', 'v47_2': '醫療照護滿意度：心理健康問題',
+    'v48_1': '覺得自己無法掌控生活中重要的事情', 'v48_2': '覺得自己有信心處理個人問題', 'v48_3': '覺得事情都照著自己的期望發展', 'v48_4': '覺得困難堆積得太多以至於無法克服',
+    'v49_1': '在運動中完成了許多有價值的事情', 'v49_2': '運動訓練讓身體疲累難以有精力做其他事', 'v49_3': '覺得運動上的努力更應該花在其他事情上', 'v49_4': '因運動壓力與精神負荷感到筋疲力盡', 'v49_5': '運動中的表現達到了能力水準', 'v49_6': '對運動重視程度一樣或更高',
+    'v50': '形容自己的體重',
+    'v51': '對於體重最符合的情況',
+    'v52_1': '穩定能取得健康的餐食選擇', 'v52_2': '每天有時間吃健康正餐', 'v52_3': '每天有經濟能力吃健康正餐',
+    'v53': '過去7天早上醒來感覺休息充足天數',
+    'v54': '綜合考量今天有多快樂',
+    'v55_1': '平日典型時間：上課', 'v55_2': '平日典型時間：課外學習', 'v55_3_1': '平日典型時間：運動活動', 'v55_3_2': '平日典型時間：非運動活動', 'v55_4': '平日典型時間：其他課外活動', 'v55_5': '平日典型時間：有薪工作', 'v55_6': '平日典型時間：社交/放鬆', 'v55_7': '平日典型時間：睡眠',
+    'v56_1': '週末典型時間：上課', 'v56_2': '週末典型時間：課外學習', 'v56_3_1': '週末典型時間：運動活動', 'v56_3_2': '週末典型時間：非運動活動', 'v56_4': '週末典型時間：其他課外活動', 'v56_5': '週末典型時間：有薪工作', 'v56_6': '週末典型時間：社交/放鬆', 'v56_7': '週末典型時間：睡眠',
+    'v57': '賽季每週因比賽離開校園時間',
+    'v58_1': '休賽期時間比較：上課', 'v58_2': '休賽期時間比較：課外學習', 'v58_3_1': '休賽期時間比較：運動活動', 'v58_3_2': '休賽期時間比較：非運動活動', 'v58_4': '休賽期時間比較：其他課外活動',
+    'v59_1': '希望時間改變：課業或其他教育', 'v59_2': '希望時間改變：運動訓練相關', 'v59_3': '希望時間改變：課外活動', 'v59_4': '希望時間改變：回家/探望家人', 'v59_5': '希望時間改變：出遠門比賽', 'v59_6': '希望時間改變：有薪工作', 'v59_7': '希望時間改變：與朋友社交', 'v59_8': '希望時間改變：獨處放鬆', 'v59_9': '希望時間改變：睡眠',
+    'v60': '對球隊安排比賽數量的看法',
+    'v61': '每週有薪工作時間',
+    'v62': '每天多出一小時最希望花在哪',
+    'v63': '最近賽季每週平均缺課堂數',
+    'v64_1': '師長對運動經驗與表現成果感到關心', 'v64_2': '校園裡的學生支援球隊', 'v64_3': '教練在乎我是否能取得學位',
+    'v65_1': '希望討論：校園與社區合宜行為', 'v65_2': '希望討論：離家生活的適應', 'v65_3': '希望討論：性暴力防治', 'v65_4': '希望討論：學術資源', 'v65_5': '希望討論：讀書習慣', 'v65_6': '希望討論：正確營養', 'v65_7': '良好睡眠', 'v65_8': '時間管理', 'v65_9': '心理健康', 'v65_10': '飲酒與物質使用', 'v65_11': '運動傷害知能', 'v65_12': '理財與財務管理', 'v65_13': '畢業後職涯準備',
+    'v66_1': '滿意度：學術顧問', 'v66_2': '滿意度：課業輔導', 'v66_3': '滿意度：生涯諮商',
+    'v67_1': '學費來源：家庭資助', 'v67_2': '學費來源：個人收入/工作', 'v67_3': '學費來源：助學金', 'v67_4': '學費來源：學業獎學金', 'v67_5': '學費來源：運動獎學金', 'v67_6': '學費來源：貸款',
+    'v68': '擔心經濟因素會影響完成學位',
+    'v69_1': '若退出球隊在經濟上會變得困難', 'v69_2': '通常有足夠金錢購買需要的東西',
+    'v70': '過去一年是否曾提供金錢協助家裡開銷',
+    'v71_1': '父親最高教育程度', 'v71_2': '母親最高教育程度',
+    'v71家長１': '父親最高教育程度', 'v71家長2': '母親最高教育程度', 
+    'v71家長1': '父親最高教育程度', 'v71家長２': '母親最高教育程度', 
+    'v72': '出生年份', 'v73': '出生月份', 'v74': '參加的運動賽事層級', 'v75': '性別'
+}
+
+question_groups = {
+    "v2_你會如何描述自己 (身分複選)": {"type": "multiple_choice", "items": {"v2_1": "臺灣人", "v2_2": "原住民", "v2_3": "新住民"}},
+    "v6_對以下陳述的同意或不同意程度 (自我認同/目標)": {"type": "likert", "items": {"v6_1": "我認為自己是一名積極的運動員", "v6_2": "我認為自己是一名積極的學生", "v6_3": "我在運動方面有許多個人目標", "v6_4": "我在學業方面有許多個人目標", "v6_5": "我需要在運動追求上表現出色，才能對自己感到滿意", "v6_6": "我需要在學術追求上表現出色，才能對自己感到滿意", "v6_7": "我的運動經驗是整體大學經驗中重要的一部分", "v6_8": "我的學術經驗是整體大學經驗中重要的一部分", "v6_9": "即使我不是運動員，我仍然會去唸某所四年制大學"}},
+    "v9_如果你有轉學，原因是什麼？(可複選)": {"type": "multiple_choice", "items": {"v9_1": "我沒有轉學", "v9_2": "學業因素", "v9_3": "運動因素", "v9_4": "醫療因素", "v9_5": "財務因素", "v9_6": "家庭/個人因素"}},
+    "v14_大學生活與運動滿意度量表": {"type": "likert", "items": {"v14_1": "你在大學課程中所付出的努力", "v14_2": "在運動賽季期間，你跟上課業進度的能力", "v14_3": "你從大學順利畢業的可能性", "v14_4": "到目前為止，你整體的大學學業經驗", "v14_5": "到目前為止，你整體的大學運動經驗"}},
+    "v15_校園修課與師生關係同意程度 (量表)": {"type": "likert", "items": {"v15_1": "在校園上修讀傳統的實體課程是學生運動員經驗中重要的一部分", "v15_2": "自從來到這所學校後，我已經與至少一位教師建立了密切的個人關係"}},
+    "v17_你認為完成學士學位需要多久？(可複選)": {"type": "multiple_choice", "items": {"v17_1": "四年或更短", "v17_2": "超過四年，因運動相關原因", "v17_3": "超過四年，因學業或轉學原因", "v17_4": "超過四年，因醫療原因", "v17_5": "超過四年，因財務原因", "v17_6": "超過四年，因家庭或個人原因", "v17_7": "我不太可能獲得學位"}},
+    "v21_校園歸屬與生活平衡同意程度 (量表)": {"type": "likert", "items": {"v21_1": "我在這所大學有歸屬感", "v21_2": "身為運動員幫助我在這所大學社交上更融入", "v21_3": "我在這所大學經常與非運動員社交", "v21_4": "我能在學業與課外活動之間找到適當的平衡"}},
+    "v26_球隊氛圍與風氣同意程度 (量表)": {"type": "likert", "items": {"v26_1": "我的教練為所有隊員建立了一個包容的環境", "v26_2": "我的教練和隊友能接納不同的觀點與文化", "v26_3": "我的教練和隊友一向尊重不同種族/族群的人"}},
+    "v27_總教練正向行為同意程度 (量表)": {"type": "likert", "items": {"v27_1": "在倫理方面樹立「正確做事方式」的榜樣", "v27_2": "對「成功」的定義不只是獲勝，而是要公平地贏", "v27_3": "將隊員的最大利益放在心上", "v27_4": "值得信任", "v27_5": "會傾聽球隊成員的意見", "v27_6": "平等對待所有隊員"}},
+    "v28_總教練負面行為同意程度 (量表)": {"type": "likert", "items": {"v28_1": "會在他人面前貶低我", "v28_2": "會嘲笑我", "v28_3": "會向別人對我做出負面評論"}},
+    "v29_球隊氛計的同意程度-能力培養 (量表)": {"type": "likert", "items": {"v29_1": "領導能力", "v29_2": "團隊合作", "v29_3": "對社區服務的承諾", "v29_4": "對不同種族與背景之人的理解", "v29_5": "目標設定", "v29_6": "時間管理", "v29_7": "工作倫理/工作態度", "v29_8": "應對改變的能力", "v29_9": "為自己負責的能力", "v29_10": "注重細節", "v29_11": "自信心"}},
+    "v30_影響你選擇就讀目前這所大學的原因 (量表)": {"type": "likert", "items": {"v30_1": "學術課程、學術名聲等", "v30_2": "可以參與校隊運動", "v30_3": "大學的學費與就學成本", "v30_4": "是能讓我培養運動能力、邁向更高層級的好地方", "v30_5": "上場時間/比賽機會", "v30_6": "對這支球隊有強烈的連結感", "v30_7": "離家、家人或朋友的距離近", "v30_8": "這所學校的社交風氣/有朋友在這裡就讀", "v30_9": "來自父母、老師或社區的期望", "v30_10": "有特定教練在此任教", "v30_11": "體育設施的品質", "v30_12": "球隊所屬的運動賽事分級"}},
+    "v31_最初期望的準確度 (量表)": {"type": "likert", "items": {"v31_1": "這所大學的運動經驗", "v31_2": "這所大學的學業經驗", "v31_3": "這所大學的社交經驗", "v31_4": "在這所大學身為學生運動員的時間負擔"}},
+    "v32_對選擇這所學校的認同度 (量表)": {"type": "likert", "items": {"v32_1": "我很高興自己選擇來這所學校", "v32_2": "即使是不同的教練在這裡任教，我仍然會就讀這所大學", "v32_3": "如果我目前的教練離開這所學校，我會考慮轉學", "v32_4": "我會把這所大學推薦給一位高中學生運動員"}},
+    "v36_與招募過程相關的經驗 (量表)": {"type": "likert", "items": {"v36_1": "大學運動員招募過程是正面的經驗", "v36_2": "招募期間，大學教練聯繫我太頻繁", "v36_3": "招募時，大學教練說的球隊角色與實際相符", "v36_4": "招募時，大學教練說的學業選擇與實際相符"}},
+    "v39_高中期間參加的隊伍 (可複選)": {"type": "multiple_choice", "items": {"v39_1": "在高中校隊參加比賽", "v39_2": "在社團球隊(菁英隊)參加比賽", "v39_3": "在國家代表隊參加比賽"}},
+    "v41_高中與青少年運動陳述的同意程度 (量表)": {"type": "likert", "items": {"v41_1": "參加高中校隊比賽在我成為運動員的發展中扮演了重要角色", "v41_2": "參加社團球隊比賽在我成為運動員的發展中扮演了重要角色", "v41_3": "我喜歡自己在高中校隊的經驗", "v41_4": "我喜歡自己在社團球隊的經驗", "v41_5": "我主要運動項目的青少年在進入大學前參加的比賽太多", "v41_6": "我希望在成長過程中能有更多時間參與其他運動"}},
+    "v42_家人的期望同意程度 (量表)": {"type": "likert", "items": {"v42_1": "成為一名學生運動員", "v42_2": "成為一名職業或奧運運動員", "v42_3": "獲得大學學位"}},
+    "v43_過去30天內出現問題的天數 (量表)": {"type": "likert", "items": {"v43_1": "頭痛", "v43_2": "影響日常活動的其他疼痛", "v43_3": "感冒、流感或類似疾病", "v43_4": "睡眠困難"}},
+    "v44_因運動傷害開刀住院的次數 (量表)": {"type": "likert", "items": {"v44_1": "在大學期間", "v44_2": "在進入大學之前"}},
+    "v46_教練關心身心健康同意程度 (量表)": {"type": "likert", "items": {"v46_1": "我的教練關心我的身體健康", "v46_2": "我的教練關心我的心理健康", "v46_3": "與教練談論身體健康問題很自在", "v46_4": "與教練談論心理健康問題很自在"}},
+    "v47_醫療人員照護滿意度 (量表)": {"type": "likert", "items": {"v47_1": "身體健康問題", "v47_2": "心理健康問題"}},
+    "v48_過去一個月的感受與想法頻率 (量表)": {"type": "likert", "items": {"v48_1": "覺得自己無法掌控生活中重要的事情", "v48_2": "覺得自己有信心處理個人問題", "v48_3": "覺得事情都照著自己的期望發展", "v48_4": "覺得困難堆積得太多，以至於無法克服"}},
+    "v49_運動成就感與壓力同意程度 (量表)": {"type": "likert", "items": {"v49_1": "我在運動中完成了許多有價值的事情", "v49_2": "我的運動訓練讓我身體非常疲累，難以有精力做其他事", "v49_3": "覺得自己投入在運動上的努力，切更應該花在其他事情上", "v49_4": "我因運動的心理壓力與精神負荷而感到筋疲力盡", "v49_5": "我在運動中的表現達到了自己的能力水準", "v49_6": "我對這項運動的重視程度與以往一樣，甚至更高"}},
+    "v52_健康餐食取得同意程度 (量表)": {"type": "likert", "items": {"v52_1": "在訓練或比賽結束後，我穩定能取得健康的餐食選擇", "v52_2": "我每天都有時間吃健康的正餐", "v52_3": "我每天都有經濟能力吃健康的正餐"}},
+    "v55_典型平日(週一至五)花費時間 (量表)": {"type": "likert", "items": {"v55_1": "上課", "v55_2": "課外學習", "v55_3_1": "運動活動", "v55_3_2": "非運動活動", "v55_4": "其他課外活動", "v55_5": "有薪工作", "v55_6": "社交、放鬆或與家人相處", "v55_7": "睡眠"}},
+    "v56_典型週末花費時間 (量表)": {"type": "likert", "items": {"v56_1": "上課", "v56_2": "課外學習", "v56_3_1": "運動活動", "v56_3_2": "非運動活動", "v56_4": "其他課外活動", "v56_5": "有薪工作", "v56_6": "社交、放鬆或與家人相處", "v56_7": "睡眠"}},
+    "v58_休賽期花費時間比較 (量表)": {"type": "likert", "items": {"v58_1": "上課", "v58_2": "課外學習", "v58_3_1": "運動活動", "v58_3_2": "非運動活動", "v58_4": "其他課外活動"}},
+    "v59_希望花費時間的改變 (量表)": {"type": "likert", "items": {"v59_1": "課業或其他教育", "v59_2": "運動訓練比賽", "v59_3": "一項或多項課外活動", "v59_4": "回家/探望家人", "v59_5": "出遠門參加比賽", "v59_6": "有薪工作", "v59_7": "與朋友社交", "v59_8": "獨處放鬆", "v59_9": "睡眠"}},
+    "v64_校園支持與師長關心同意程度 (量表)": {"type": "likert", "items": {"v64_1": "我校的師長對我的運動經驗與表現成果感到關心", "v64_2": "校園裡的學生支援我們的球隊", "v64_3": "我的教練在乎我是否能取得學位"}},
+    "v65_希望教練或行政人員討論的主題 (複選)": {"type": "multiple_choice", "items": {"v65_1": "在校園與社區中保持合宜的行為", "v65_2": "離家生活的適應", "v65_3": "性暴力防治", "v65_4": "學術資源", "v65_5": "讀書習慣", "v65_6": "正確營養", "v65_7": "良好睡眠", "v65_8": "時間管理", "v65_9": "心理健康", "v65_10": "飲酒與物質使用", "v65_11": "運動傷害知能", "v65_12": "理財與財務管理", "v65_13": "畢業後職涯準備"}},
+    "v66_學術支援服務滿意度 (量表)": {"type": "likert", "items": {"v66_1": "學術顧問(協助選課/追蹤學位進度)", "v66_2": "課業輔導(家教或學習輔助)", "v66_3": "生涯諮商(職涯規劃與就業指導)"}},
+    "v67_支付大學學費與相關開銷來源 (複選)": {"type": "multiple_choice", "items": {"v67_1": "家庭資助", "v67_2": "個人收入/工作所得", "v67_3": "基於經濟需求的助學金", "v67_4": "學業獎學金", "v67_5": "運動獎學金", "v67_6": "貸款"}},
+    "v69_經濟困難感受同意程度 (量表)": {"type": "likert", "items": {"v69_1": "如果我退出球隊，繼續就讀這所大學在經濟上會變得困難", "v69_2": "我通常有足夠的金錢購買我所需要的東西"}}
+}
+
+# ==========================================
+# 🆕 智慧選項翻譯器：根據題號動態將 1,2,3... 翻譯成中文對照標籤
+# ==========================================
+def translate_value(q, val):
+    s_val = str(val).strip().replace('.0', '')
+    if s_val == '99': return '99 (不適用/未填)'
+    
+    # 1. 6點李克特量表 (非常不同意 ~ 非常同意)
+    likert_6 = ['v6', 'v15', 'v21', 'v26', 'v27', 'v28', 'v29', 'v30', 'v32', 'v36', 'v41', 'v42', 'v46', 'v52', 'v64']
+    if any(q.startswith(p) for p in likert_6):
+        return {'1':'1 非常不同意','2':'2 不同意','3':'3 有點不同意','4':'4 有點同意','5':'5 同意','6':'6 非常同意'}.get(s_val, s_val)
+        
+    # 2. 6點正負面量表 (非常負面 ~ 非常正面)
+    if q.startswith('v14'):
+        return {'1':'1 非常負面','2':'2 很負面','3':'3 有點負面','4':'4 有點正面','5':'5 很正面','6':'6 非常正面'}.get(s_val, s_val)
+        
+    # 3. v49 運動成就與壓力 (包含反向題意)
+    if q.startswith('v49'):
+        if q in ['v49_2', 'v49_3', 'v49_4']:
+            return {'1':'1 非常同意','2':'2 同意','3':'3 有點同意','4':'4 有點不同意','5':'5 不同意','6':'6 非常不同意'}.get(s_val, s_val)
+        else:
+            return {'1':'1 非常不同意','2':'2 不同意','3':'3 有點不同意','4':'4 有點同意','5':'5 同意','6':'6 非常同意'}.get(s_val, s_val)
+            
+    # 4. 複選與0/1題型 (0否, 1是)
+    yes_no_cols = ['v2_', 'v9_', 'v39', 'v40', 'v65', 'v67']
+    if any(q.startswith(p) for p in yes_no_cols):
+        return {'0':'0 否', '1':'1 是'}.get(s_val, s_val)
+        
+    # 5. v17 特別勾選題 (1是, 0否)
+    if q.startswith('v17'):
+        return {'1':'1 是', '0':'0 否'}.get(s_val, s_val)
+
+    # 6. 平日時間投入 (1=0小時, 9=8+小時)
+    if q.startswith('v55'):
+        return {'1':'1 (0小時)','2':'2 (1小時)','3':'3 (2小時)','4':'4 (3小時)','5':'5 (4小時)','6':'6 (5小時)','7':'7 (6小時)','8':'8 (7小時)','9':'9 (8+小時)'}.get(s_val, s_val)
+        
+    # 7. 週末時間投入 (1=0小時, 9=15+小時)
+    if q.startswith('v56'):
+        return {'1':'1 (0小時)','2':'2 (1-2小時)','3':'3 (3-4小時)','4':'4 (5-6小時)','5':'5 (7-8小時)','6':'6 (9-10小時)','7':'7 (11-12小時)','8':'8 (13-14小時)','9':'9 (15+小時)'}.get(s_val, s_val)
+        
+    # 8. 休賽期與時間希望改變比較
+    if q.startswith('v58') or q.startswith('v59'):
+        return {'-2':'-2 非常少/少一點', '-1':'-1 比較少/少一點', '0':'0 差不多', '1':'1 比較多/多一點', '2':'2 非常多'}.get(s_val, s_val)
+        
+    # 9. v66 學術支援滿意度
+    if q.startswith('v66'):
+        return {'0':'0 無提供此服務', '1':'1 沒使用過', '2':'2 不滿意', '3':'3 有點不滿意', '4':'4 還算滿意', '5':'5 滿意'}.get(s_val, s_val)
+
+    # 10. v48 頻率中文配對
+    if q.startswith('v48'):
+        return {'1':'1 從未','2':'2 很少','3':'3 有時','4':'4 經常','5':'5 總是'}.get(s_val, s_val)
+
+    # 11. v71 父母最高教育程度
+    if q.startswith('v71'):
+        return {
+            '1': '1 未完成高中學業', '2': '2 高中畢業', '3': '3 曾就讀大學但未取得學位',
+            '4': '4 取得副學士學位', '5': '5 取得學士學位', '6': '6 取得碩士學位',
+            '7': '7 取得博士或專業學位', '8': '8 不清楚/不知道'
+        }.get(s_val, s_val)
+
+    # 12. 獨立單選題精準配對字典
+    single_maps = {
+        'v3': {'1':'1 先發', '2':'2 候補', '3':'3 訓練但少出場', '4':'4 僅練習未參賽'},
+        'v4': {'1':'1 否', '2':'2 部分獎學金', '3':'3 全額獎學金'},
+        'v5': {'1':'1 非常不可能', '2':'2 不可能', '3':'3 有點不可能', '4':'4 有點可能', '5':'5 可能', '6':'6 非常可能'},
+        'v7': {'1':'1 大一', '2':'2 大二', '3':'3 大三', '4':'4 大四'},
+        'v8': {'1':'1 否', '2':'2 兩年制轉入', '3':'3 四年制轉入'},
+        'v10': {'1':'1 一定會再選主修', '2':'2 可能會再選主修', '3':'3 也許會再選主修', '4':'4 可能不會再選主修', '5':'5 一定不會再選主修', '6':'6 尚未選定'},
+        'v11': {'1':'1 否', '2':'2 是且不後悔', '3':'3 是且後悔'},
+        'v12': {'1':'1 否', '2':'2 是且不後悔', '3':'3 是且後悔'},
+        'v13': {'1':'1 從未', '2':'2 一兩次', '3':'3 經常'},
+        'v16': {'1':'1 已參與留遊學', '2':'2 想參與 But 因運動無法', '3':'3 想參與 但因他因無法', '4':'4 否，無興趣', '5':'5 尚不確定'},
+        'v18': {'1':'1 主修相關工作', '2':'2 非主修相關工作', '3':'3 就讀研究所', '4':'4 服兵役', '5':'5 專注運動', '6':'6 過渡期', '7':'7 照顧者', '8':'8 無計畫'},
+        'v19': {'1':'1 非常不可能', '2':'2 有點不可能', '3':'3 不確定', '4':'4 有點可能', '5':'5 非常可能'},
+        'v20': {'1':'1 非常不可能', '2':'2 有點不可能', '3':'3 不確定', '4':'4 有點可能', '5':'5 非常可能'},
+        'v22': {'1':'1 全部是隊友', '2':'2 很多是隊友', '3':'3 一些是隊友', '4':'4 很少是隊友', '5':'5 沒有人是隊友'},
+        'v23': {'1':'1 一個人住', '2':'2 與家人/伴侶同住', '3':'3 只與隊友同住', '4':'4 混住', '5':'5 與非運動員同住', '6':'6 其他居住安排'},
+        'v24': {'1':'1 未參與志工', '2':'2 偶爾數小時', '3':'3 每月數小時', '4':'4 每週數小時', '5':'5 每天1小時以上'},
+        'v25': {'1':'1 經常要求', '2':'2 偶爾要求', '3':'3 建議但不強制', '4':'4 未以團隊參與'},
+        'v33': {'0':'0 否', '1':'1 是'},
+        'v34': {'1':'1 高中之前', '2':'2 高一', '3':'3 高二', '4':'4 高三', '5':'5 未被招募'},
+        'v35': {'1':'1 高一之前', '2':'2 高一', '3':'3 高二', '4':'4 高三'},
+        'v37': {'1':'1 6歲或更小', '2':'2 7-9歲', '3':'3 10-12歲', '4':'4 13-15歲', '5':'5 16歲以上'},
+        'v38': {'1':'1 6歲或更小', '2':'2 7-9歲', '3':'3 10-12歲', '4':'4 13-15歲', '5':'5 16-18歲', '6':'6 參加多項運動'},
+        'v43': {'1':'1 15天以上', '2':'2 8-14天', '3':'3 4-7天', '4':'4 1-3天', '5':'5 沒有'},
+        'v44': {'1':'1 5+', '2':'2 4', '3':'3 3', '4':'4 2', '5':'5 1', '6':'6 0'},
+        'v45': {'0':'0 否', '1':'1 是'},
+        'v47': {'99':'99 無需求', '1':'1 非常不滿意', '2':'2 不滿意', '3':'3 普通', '4':'4 還算滿意', '5':'5 非常滿意'},
+        'v50': {'1':'1 非常過輕', '2':'2 略為過輕', '3':'3 大致剛好', '4':'4 略為過重', '5':'5 非常過重'},
+        'v51': {'1':'1 增加體重', '2':'2 減少體重', '3':'3 維持體重', '4':'4 無特別想改變'},
+        'v53': {'1':'1 1天', '2':'2 2天', '3':'3 3天', '4':'4 4天', '5':'5 5天', '6':'6 6天', '7':'7 7天'},
+        'v54': {'1':'1 一點也不快樂', '2':'2 有點不快樂', '3':'3 有點快樂', '4':'4 非常快樂'},
+        'v57': {'1':'1 沒有離開', '2':'2 半天或更少', '3':'3 1天', '4':'4 2天', '5':'5 3天', '6':'6 4天以上'},
+        'v60': {'1':'1 滿意', '2':'2 希望再多一些', '3':'3 希望少一點'},
+        'v61': {'1':'1 0小時', '2':'2 1-5小時', '3':'3 6-10小時', '4':'4 11-15小時', '5':'5 16-20小時', '6':'6 超過20小時'},
+        'v62': {'1':'1 課業', '2':'2 運動', '3':'3 課外活動', '4':'4 家人', '5':'5 有薪工作', '6':'6 朋友', '7':'7 放鬆'},
+        'v63': {'1':'1 沒有', '2':'2 1堂', '3':'3 2堂', '4':'4 3堂', '5':'5 4堂', '6':'6 5堂', '7':'7 6堂以上'},
+        'v68': {'1':'1 非常擔心', '2':'2 有點擔心', '3':'3 不擔心'},
+        'v69': {'1':'1 不同意', '2':'2 有點不同意', '3':'3 有點同意', '4':'4 同意'},
+        'v70': {'3':'3 經常', '2':'2 偶爾', '1':'1 從未'},
+        'v72': {'1':'1 2003前', '2':'2 2004', '3':'3 2005', '4':'4 2006', '5':'5 2007', '6':'6 2008後'},
+        'v73': {'1':'1 一月','2':'2 二月','3':'3 三月','4':'4 四月','5':'5 五月','6':'6 六月','7':'7 七月','8':'8 八月','9':'9 九月','10':'10 十月','11':'11 十一月','12':'12 十二月'},
+        'v74': {'1':'1 公開組 (甲組)', '2':'2 一般組 (乙組)'},
+        'v75': {'0':'0 女', '1':'1 男'}
+    }
+    
+    if q in single_maps: return single_maps[q].get(s_val, s_val)
+    for k, m in single_maps.items():
+        if q.startswith(k): return m.get(s_val, s_val)
+    return s_val
+
+# ==========================================
+# 🆕 智慧中文名稱解析函數
+# ==========================================
+def get_q_name(q):
+    str_q = str(q).strip()
+    if str_q in full_q_dict:
+        return full_q_dict[str_q]
+    if 'v71' in str_q:
+        if '1' in str_q or '１' in str_q: return '父親最高教育程度'
+        if '2' in str_q or '２' in str_q: return '母親最高教育程度'
+    return '未命名題項'
+
+# ==========================================
+# 🚀 記憶體優化 資料讀取與轉換
+# ==========================================
 @st.cache_data
 def load_data():
     df = pd.read_csv("student_athletes_data.csv")
-    
-    # 將整份資料表中的空白值 (NaN) 全部補為 99
     df = df.fillna(99)
-    
-    # 依據 Codebook 轉換運動項目 (v1)
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], downcast='integer')
+
     sport_mapping = {
         1: '籃球', 2: '足球', 3: '排球', 4: '羽球', 5: '桌球', 
         6: '網球', 7: '棒球', 8: '木球', 9: '合球', 10: '軟式網球',
@@ -28,69 +278,6 @@ def load_data():
 
 df = load_data()
 
-# 3. --- 左側側邊欄 (Sidebar) 互動控制中心 ---
-st.sidebar.header("⚙️ 儀表板控制中心")
-
-# 控制項 A：運動項目多選器
-st.sidebar.subheader("📌 1. 篩選資料範圍")
-all_sports = df['運動項目'].dropna().unique().tolist()
-default_sports = [s for s in ['體操', '田徑', '游泳', '籃球', '羽球'] if s in all_sports]
-if not default_sports:
-    default_sports = all_sports[:5]
-
-selected_sports = st.sidebar.multiselect(
-    "選擇運動項目（全域連動）：",
-    options=all_sports,
-    default=default_sports
-)
-
-st.sidebar.divider()
-
-# 控制項 B：逐題分析多選選單 (主要連動分頁二)
-st.sidebar.subheader("📚 2. 選擇分析題項 (可多選)")
-exclude_cols = ['運動項目']
-available_cols = [col for col in df.columns if col not in exclude_cols]
-
-default_q = ['v2_1'] if 'v2_1' in available_cols else [available_cols[0]]
-
-selected_qs = st.sidebar.multiselect(
-    "請選擇問卷題號（連動分頁二）：",
-    options=available_cols,
-    default=default_q
-)
-
-st.sidebar.divider()
-
-# 控制項 C：圖表類型與視覺設定
-st.sidebar.subheader("🎨 3. 視覺化圖表設定")
-chart_type = st.sidebar.selectbox(
-    "為下方分析選擇最適合的圖表類型：",
-    ["直立長條圖 (Bar)", "水平長條圖 (Horizontal Bar)", "圓餅圖 (Pie)", "甜甜圈圖 (Donut)", "板塊樹狀圖 (Treemap)"]
-)
-
-color_theme = st.sidebar.selectbox(
-    "選擇全域圖表配色主題：",
-    ["Set2 (柔和)", "Pastel (粉彩)", "Plasma (高對比漸層)", "Viridis (專業漸層)", "Plotly (經典藍)"]
-)
-
-st.sidebar.divider()
-
-# 控制項 D：旭日圖專屬多層級設定
-st.sidebar.subheader("🎯 4. 旭日圖層級設定")
-st.sidebar.markdown("可以自由選擇多個題目組合，依序**由內向外**層層發散堆疊。")
-
-sunburst_options = ['運動項目'] + available_cols
-default_sunburst = [s for s in ['v67_1', 'v2_1', '運動項目'] if s in sunburst_options]
-if not default_sunburst:
-    default_sunburst = sunburst_options[:3]
-
-sunburst_paths = st.sidebar.multiselect(
-    "自訂旭日圖架構（層級由內向外）：",
-    options=sunburst_options,
-    default=default_sunburst
-)
-
-# 配色字典對應
 color_dict = {
     "Set2 (柔和)": px.colors.qualitative.Set2,
     "Pastel (粉彩)": px.colors.qualitative.Pastel,
@@ -99,148 +286,256 @@ color_dict = {
     "Plotly (經典藍)": px.colors.qualitative.Plotly
 }
 
-# 核心過濾資料集
-filtered_df = df[df['運動項目'].isin(selected_sports)]
+# ==========================================
+# 🚀 左側導覽列
+# ==========================================
+st.sidebar.header("📁 頁面切換導覽")
+selected_page = st.sidebar.radio(
+    "選擇要查看的分析頁面：",
+    ["🌟 核心指標總覽", "📊 自選單題深入探索", "📋 全題項精簡報告", "🧩 題組交叉分析", "🕸️ 八大構面雷達圖"]
+)
+st.sidebar.divider()
 
+st.sidebar.header("⚙️ 儀表板全域篩選")
+all_sports = df['運動項目'].dropna().unique().tolist()
+default_sports = [s for s in ['體操', '田徑', '游泳', '籃球', '羽球'] if s in all_sports]
+if not default_sports: default_sports = all_sports[:5]
+selected_sports = st.sidebar.multiselect("📌 選擇分析的運動項目：", options=all_sports, default=default_sports)
+
+filtered_df = df[df['運動項目'].isin(selected_sports)]
 if filtered_df.empty:
     st.warning("⚠️ 請從左側選單至少選擇一項運動項目！")
     st.stop()
 
-
-# 4. --- 右側主畫面：建立分頁 (Tabs) ---
-tab1, tab2, tab3 = st.tabs(["🌟 核心指標總覽", "📊 自選題項動態探索", "📋 全題項完整報告"])
-
 # ==========================================
-# Tab 1: 核心指標總覽
+# 頁面 1: 核心指標總覽
 # ==========================================
-with tab1:
-    sport_counts = filtered_df['運動項目'].value_counts().reset_index()
+def render_page_1(f_df):
+    st.header("🌟 核心指標總覽")
+    st.sidebar.divider()
+    st.sidebar.subheader("🎨 視覺與圖表設定")
+    color_theme = st.sidebar.selectbox("配色主題：", list(color_dict.keys()))
+    
+    available_cols = [col for col in f_df.columns if col != '運動項目']
+    sunburst_options = ['運動項目'] + available_cols
+    default_sunburst = [s for s in ['v67_1', 'v2_1', '運動項目'] if s in sunburst_options]
+    sunburst_paths = st.sidebar.multiselect(
+        "🎯 旭日圖階層 (由內向外)：", options=sunburst_options, default=default_sunburst[:3],
+        format_func=lambda x: f"{x} {get_q_name(x)}" if x in full_q_dict or 'v71' in str(x) else x
+    )
+
+    sport_counts = f_df['運動項目'].value_counts().reset_index()
     sport_counts.columns = ['運動項目', '樣本數']
-
+    
     col1, col2 = st.columns(2)
-
     with col1:
-        st.subheader("🏵️ 極座標玫瑰圖 (各運動項目人數)")
-        fig_rose = px.bar_polar(
-            sport_counts, r='樣本數', theta='運動項目', color='運動項目',
-            color_discrete_sequence=color_dict[color_theme]
-        )
-        fig_rose.update_layout(
-            polar=dict(radialaxis=dict(showticklabels=False)),
-            showlegend=False
-        )
-        st.plotly_chart(fig_rose, use_container_width=True, key="tab1_rose_chart")
-
-    with col2:
-        st.subheader("☀️ 多層級互動旭日圖")
+        st.subheader("🏵️ 各運動項目人數")
+        st.caption("極座標玫瑰圖")
+        fig_rose = px.bar_polar(sport_counts, r='樣本數', theta='運動項目', color='運動項目', color_discrete_sequence=color_dict[color_theme])
+        fig_rose.update_layout(polar=dict(radialaxis=dict(showticklabels=False)), showlegend=False)
+        st.plotly_chart(fig_rose, use_container_width=True)
+        del fig_rose
         
+    with col2:
+        st.subheader("☀️ 各變數描述統計")
+        st.caption("多層級互動旭日圖")
         if sunburst_paths:
-            df_sunburst = filtered_df.copy()
-            
+            df_sun = f_df[list(set(sunburst_paths))].copy()
             for path_col in sunburst_paths:
-                df_sunburst[path_col] = df_sunburst[path_col].astype(str).str.replace('.0', '', regex=False)
-                df_sunburst[path_col] = df_sunburst[path_col].replace({'99': '99 (不適用/未填)'})
-                
-                if path_col == 'v67_1':
-                    df_sunburst[path_col] = df_sunburst[path_col].replace({'1': '有家庭資助', '0': '無家庭資助'})
-                elif path_col == 'v2_1':
-                    df_sunburst[path_col] = df_sunburst[path_col].replace({'1': '臺灣人', '0': '非臺灣人'})
+                df_sun[path_col] = df_sun[path_col].astype(str).str.replace('.0', '', regex=False).replace({'99': '99 (不適用/未填)'})
+                if path_col == 'v67_1': df_sun[path_col] = df_sun[path_col].replace({'1': '有家庭資助', '0': '無家庭資助'})
+                elif path_col == 'v2_1': df_sun[path_col] = df_sun[path_col].replace({'1': '臺灣人', '0': '非臺灣人'})
             
-            fig_sunburst = px.sunburst(
-                df_sunburst, 
-                path=sunburst_paths, 
-                color=sunburst_paths[0], 
-                color_discrete_sequence=color_dict[color_theme]
-            )
+            fig_sunburst = px.sunburst(df_sun, path=sunburst_paths, color=sunburst_paths[0], color_discrete_sequence=color_dict[color_theme], labels=full_q_dict)
             fig_sunburst.update_traces(textinfo='label+percent parent')
-            st.plotly_chart(fig_sunburst, use_container_width=True, key="tab1_sunburst_chart")
+            st.plotly_chart(fig_sunburst, use_container_width=True)
+            del fig_sunburst, df_sun
         else:
-            st.info("💡 請在左側側邊欄「🎯 4. 旭日圖層級設定」勾選題目，即可動態生成多層螺旋圖。")
+            st.info("💡 請在左側勾選題目以生成旭日圖。")
 
 # ==========================================
-# Tab 2: 自選題項動態探索 (可多選比較)
+# 頁面 2: 自選單題動態探索
 # ==========================================
-with tab2:
-    st.header("🔍 自選題項描述統計比較")
+def render_page_2(f_df):
+    st.header("📊 自選單題動態探索")
+    st.sidebar.divider()
+    st.sidebar.subheader("📚 分析與視覺設定")
+    available_cols = [col for col in f_df.columns if col != '運動項目']
+    default_q = [available_cols[0]]
+    
+    selected_qs = st.sidebar.multiselect("選擇問卷題號：", options=available_cols, default=default_q, format_func=lambda x: f"{x} {get_q_name(x)}")
+    chart_type = st.sidebar.selectbox("圖表類型：", ["直立長條圖 (Bar)", "水平長條圖 (Horizontal Bar)", "圓餅圖 (Pie)", "甜甜圈圖 (Donut)", "板塊樹狀圖 (Treemap)"])
+    color_theme = st.sidebar.selectbox("配色主題：", list(color_dict.keys()))
     
     if not selected_qs:
-        st.info("💡 請從左側的「📚 2. 選擇分析題項」選擇至少一個題目來進行分析。")
+        st.info("💡 請從左側選擇至少一個題目來進行分析。")
     else:
-        st.markdown(f"目前共選擇了 **{len(selected_qs)}** 個題項。")
-        
         for q in selected_qs:
-            st.subheader(f"📌 題項 {q} 描述性統計")
-            
-            q_counts = filtered_df[q].value_counts().reset_index()
+            st.subheader(f"📌 {q}：{get_q_name(q)}")
+            q_counts = f_df[q].value_counts().reset_index()
             q_counts.columns = ['選項代碼 / 數值', '次數']
             
-            q_counts['選項代碼 / 數值'] = q_counts['選項代碼 / 數值'].astype(str)
-            q_counts['選項代碼 / 數值'] = q_counts['選項代碼 / 數值'].str.replace('.0', '', regex=False)
-            q_counts['選項代碼 / 數值'] = q_counts['選項代碼 / 數值'].replace({'99': '99 (不適用/未填)'})
+            q_counts['選項代碼 / 數值'] = q_counts['選項代碼 / 數值'].apply(lambda x: translate_value(q, x))
             q_counts = q_counts.sort_values(by='選項代碼 / 數值')
             
             if chart_type == "直立長條圖 (Bar)":
-                fig_q = px.bar(q_counts, x='選項代碼 / 數值', y='次數', text='次數', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
-                fig_q.update_traces(textposition='outside')
-                fig_q.update_layout(xaxis_type='category', showlegend=False)
+                fig = px.bar(q_counts, x='選項代碼 / 數值', y='次數', text='次數', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
+                fig.update_layout(xaxis_type='category', showlegend=False)
             elif chart_type == "水平長條圖 (Horizontal Bar)":
                 q_counts = q_counts.sort_values(by='次數', ascending=True)
-                fig_q = px.bar(q_counts, y='選項代碼 / 數值', x='次數', text='次數', orientation='h', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
-                fig_q.update_traces(textposition='outside')
-                fig_q.update_layout(yaxis_type='category', showlegend=False)
+                fig = px.bar(q_counts, y='選項代碼 / 數值', x='次數', text='次數', orientation='h', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
+                fig.update_layout(yaxis_type='category', showlegend=False)
             elif chart_type in ["圓餅圖 (Pie)", "甜甜圈圖 (Donut)"]:
-                fig_q = px.pie(q_counts, names='選項代碼 / 數值', values='次數', hole=(0.4 if chart_type == "甜甜圈圖 (Donut)" else 0), color_discrete_sequence=color_dict[color_theme])
-                fig_q.update_traces(textinfo='percent+label')
-            elif chart_type == "板塊樹狀圖 (Treemap)":
-                fig_q = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_dict[color_theme])
-                fig_q.update_traces(textinfo='label+value+percent entry')
-
-            st.plotly_chart(fig_q, use_container_width=True, key=f"tab2_chart_{q}")
+                fig = px.pie(q_counts, names='選項代碼 / 數值', values='次數', hole=(0.4 if "Donut" in chart_type else 0), color_discrete_sequence=color_dict[color_theme])
+                fig.update_traces(textinfo='percent+label')
+            else:
+                fig = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_theme)
             
-            with st.expander(f"📄 查看 {q} 數據次數分配表"):
+            st.plotly_chart(fig, use_container_width=True)
+            with st.expander("📄 查看數據次數分配表"):
                 st.dataframe(q_counts, use_container_width=True)
+            st.divider()
+            del fig
+
+# ==========================================
+# 頁面 3: 全題項精簡報告
+# ==========================================
+def render_page_3(f_df):
+    st.header("📋 全題項精簡統計報告")
+    st.markdown("⚠️ 為維持雲端伺服器記憶體健康，此頁面採**「分批載入」**與**「原生輕量長條圖」**呈現。如需精美圖表請至「自選單題」頁面。")
+    
+    st.sidebar.divider()
+    st.sidebar.subheader("📂 選擇載入範圍")
+    available_cols = [col for col in f_df.columns if col != '運動項目' and col != 'ID']
+    batch_size = 20
+    total_batches = (len(available_cols) // batch_size) + 1
+    batch_options = [f"第 {i*batch_size + 1} 題 ~ 第 {min((i+1)*batch_size, len(available_cols))} 題" for i in range(total_batches)]
+    
+    selected_batch = st.sidebar.selectbox("選擇要瀏覽的題號範圍：", options=batch_options)
+    batch_idx = batch_options.index(selected_batch)
+    
+    start_idx = batch_idx * batch_size
+    end_idx = min((batch_idx + 1) * batch_size, len(available_cols))
+    cols_to_show = available_cols[start_idx:end_idx]
+    
+    for q in cols_to_show:
+        st.subheader(f"📊 {q}：{get_q_name(q)}")
+        q_counts = f_df[q].value_counts().reset_index()
+        q_counts.columns = ['選項', '次數']
+        
+        q_counts['選項'] = q_counts['選項'].apply(lambda x: translate_value(q, x))
+        q_counts = q_counts.sort_values(by='選項')
+        
+        st.bar_chart(data=q_counts.set_index('選項'), use_container_width=True)
+        with st.expander("📄 查看分配表"):
+            st.dataframe(q_counts, use_container_width=True)
+        st.divider()
+
+# ==========================================
+# 頁面 4: 題組交叉分析 (Likert優化為堆疊累積圖)
+# ==========================================
+def render_page_4(f_df):
+    st.header("🧩 題組交叉分析")
+    st.sidebar.divider()
+    st.sidebar.subheader("🧩 分析設定")
+    selected_groups = st.sidebar.multiselect("請選擇題組：", options=list(question_groups.keys()), default=[list(question_groups.keys())[0]])
+    color_theme = st.sidebar.selectbox("配色主題：", list(color_dict.keys()))
+    
+    if not selected_groups:
+        st.info("💡 請從左側選擇至少一個題組來進行分析。")
+    else:
+        for group in selected_groups:
+            st.subheader(f"📌 {group}")
+            g_info = question_groups[group]
+            valid_cols = [c for c in g_info["items"].keys() if c in f_df.columns]
+            
+            if valid_cols:
+                if g_info["type"] == "multiple_choice":
+                    counts = {g_info["items"][c]: f_df[c].astype(str).str.replace('.0', '', regex=False).eq('1').sum() for c in valid_cols}
+                    df_g = pd.DataFrame(list(counts.items()), columns=['中文選項', '選擇人數']).sort_values(by='選擇人數')
+                    fig = px.bar(df_g, x='選擇人數', y='中文選項', text='選擇人數', orientation='h', color='中文選項', color_discrete_sequence=color_dict[color_theme])
+                    fig.update_layout(showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                elif g_info["type"] == "likert":
+                    res_list = []
+                    for c in valid_cols:
+                        temp = f_df[c].astype(str).str.replace('.0', '', regex=False).replace({'99': '99 (未填/不適用)'})
+                        vc = temp.value_counts().reset_index()
+                        vc.columns = ['分數', '人數']
+                        
+                        vc['分數'] = vc['分數'].apply(lambda x: translate_value(c, x))
+                        vc['題目'] = g_info["items"][c]
+                        res_list.append(vc)
+                    df_g = pd.concat(res_list).sort_values(by=['題目', '分數'])
+                    
+                    # 優化：改成堆疊圖（relative），呈現完美百分比或累積趨勢
+                    fig = px.bar(df_g, x='題目', y='人數', color='分數', barmode='relative', text='人數', color_discrete_sequence=color_dict[color_theme])
+                    fig.update_layout(xaxis_title="", yaxis_title="人數", legend_title="得分級別")
+                    st.plotly_chart(fig, use_container_width=True)
+                del fig
             st.divider()
 
 # ==========================================
-# Tab 3: 全題項完整報告 (照順序一整排列出)
+# 頁面 5: 八大構面雷達圖 (修正反向題Bug)
 # ==========================================
-with tab3:
-    st.header("📋 全題項完整統計報告")
-    st.markdown(f"此頁面會自動依序排列問卷中的所有欄位（共 **{len(available_cols)}** 題），並即時連動左側的「運動項目篩選」與「視覺化設定」。")
-    
-    for q in available_cols:
-        st.subheader(f"📊 題項 {q} 描述性統計報告")
-        
-        q_counts_all = filtered_df[q].value_counts().reset_index()
-        q_counts_all.columns = ['選項代碼 / 數值', '次數']
-        
-        q_counts_all['選項代碼 / 數值'] = q_counts_all['選項代碼 / 數值'].astype(str)
-        q_counts_all['選項代碼 / 數值'] = q_counts_all['選項代碼 / 數值'].str.replace('.0', '', regex=False)
-        q_counts_all['選項代碼 / 數值'] = q_counts_all['選項代碼 / 數值'].replace({'99': '99 (不適用/未填)'})
-        q_counts_all = q_counts_all.sort_values(by='選項代碼 / 數值')
-        
-        if chart_type == "直立長條圖 (Bar)":
-            fig_all = px.bar(q_counts_all, x='選項代碼 / 數值', y='次數', text='次數', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
-            fig_all.update_traces(textposition='outside')
-            fig_all.update_layout(xaxis_type='category', showlegend=False)
-        elif chart_type == "水平長條圖 (Horizontal Bar)":
-            q_counts_all = q_counts_all.sort_values(by='次數', ascending=True)
-            fig_all = px.bar(q_counts_all, y='選項代碼 / 數值', x='次數', text='次數', orientation='h', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
-            fig_all.update_traces(textposition='outside')
-            fig_all.update_layout(yaxis_type='category', showlegend=False)
-        elif chart_type in ["圓餅圖 (Pie)", "甜甜圈圖 (Donut)"]:
-            fig_all = px.pie(q_counts_all, names='選項代碼 / 數值', values='次數', hole=(0.4 if chart_type == "甜甜圈圖 (Donut)" else 0), color_discrete_sequence=color_dict[color_theme])
-            fig_all.update_traces(textinfo='percent+label')
-        elif chart_type == "板塊樹狀圖 (Treemap)":
-            fig_all = px.treemap(q_counts_all, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_dict[color_theme])
-            fig_all.update_traces(textinfo='label+value+percent entry')
-            
-        st.plotly_chart(fig_all, use_container_width=True, key=f"tab3_chart_{q}")
-        
-        with st.expander(f"📄 查看 {q} 數據次數分配表"):
-            st.dataframe(q_counts_all, use_container_width=True)
-            
-        st.divider() 
+def render_page_5(f_df):
+    st.header("🕸️ 八大構面綜合分析")
+    st.markdown("系統已自動抓取八大構面中的**「量表型」題目**，排除未填答(99)者，即時計算出各構面的平均分數輪廓。")
+    st.sidebar.divider()
+    color_theme = st.sidebar.selectbox("🎨 雷達圖配色：", list(color_dict.keys()))
 
-    with st.expander("📄 查看當前篩選條件下的完整原始資料表"):
-        st.dataframe(filtered_df)
+    dimension_mapping = {
+        '一、大學運動經驗': ['v5', 'v6_1', 'v6_2', 'v6_3', 'v6_4', 'v6_5', 'v6_6', 'v6_7', 'v6_8', 'v6_9'],  
+        '二、大學學業經驗': ['v10', 'v13', 'v14_1', 'v14_2', 'v14_3', 'v14_4', 'v14_5', 'v15_1', 'v15_2', 'v19', 'v20'], 
+        '三、校園社交生活': ['v21_1', 'v21_2', 'v21_3', 'v21_4', 'v26_1', 'v26_2', 'v26_3', 'v27_1', 'v27_2', 'v27_3', 'v27_4', 'v27_5', 'v27_6', 'v28_1', 'v28_2', 'v28_3', 'v29_1', 'v29_2', 'v29_3', 'v29_4', 'v29_5', 'v29_6', 'v29_7', 'v29_8', 'v29_9', 'v29_10', 'v29_11'],
+        '四、大學招募': ['v30_1', 'v30_2', 'v30_3', 'v30_4', 'v30_5', 'v30_6', 'v30_7', 'v30_8', 'v30_9', 'v30_10', 'v30_11', 'v30_12', 'v31_1', 'v31_2', 'v31_3', 'v31_4', 'v32_1', 'v32_2', 'v32_3', 'v32_4', 'v36_1', 'v36_2', 'v36_3', 'v36_4', 'v41_1', 'v41_2', 'v41_3', 'v41_4', 'v41_5', 'v41_6', 'v42_1', 'v42_2', 'v42_3'],
+        '五、健康和幸福感': ['v43_1', 'v43_2', 'v43_3', 'v43_4', 'v44_1', 'v44_2', 'v46_1', 'v46_2', 'v46_3', 'v46_4', 'v47_1', 'v47_2', 'v48_1', 'v48_2', 'v48_3', 'v48_4', 'v49_1', 'v49_2', 'v49_3', 'v49_4', 'v49_5', 'v49_6', 'v52_1', 'v52_2', 'v52_3', 'v53', 'v54'],
+        '六、時間投入': ['v55_1', 'v55_2', 'v55_3_1', 'v55_3_2', 'v55_4', 'v55_5', 'v55_6', 'v55_7', 'v56_1', 'v56_2', 'v56_3_1', 'v56_3_2', 'v56_4', 'v56_5', 'v56_6', 'v56_7', 'v58_1', 'v58_2', 'v58_3_1', 'v58_3_2', 'v58_4', 'v59_1', 'v59_2', 'v59_3', 'v59_4', 'v59_5', 'v59_6', 'v59_7', 'v59_8', 'v59_9'],
+        '七、校園支持': ['v64_1', 'v64_2', 'v64_3', 'v66_1', 'v66_2', 'v66_3'],
+        '八、經濟與財務': ['v68', 'v69_1', 'v69_2', 'v71_1', 'v71_2', 'v71家長１', 'v71家長2', 'v71家長1', 'v71家長２']
+    }
+    
+    all_needed_cols = [c for cols in dimension_mapping.values() for c in cols if c in f_df.columns]
+    df_calc = f_df[all_needed_cols].copy().replace(99, np.nan)
+    
+    # 🌟 邏輯修正：將反向題 v28 系列 (總教練負面行為) 進行反向計分 (1->6, 2->5... 等)
+    for reverse_col in ['v28_1', 'v28_2', 'v28_3']:
+        if reverse_col in df_calc.columns:
+            df_calc[reverse_col] = 7 - pd.to_numeric(df_calc[reverse_col], errors='coerce')
+            
+    radar_data = []
+    for dim_name, cols in dimension_mapping.items():
+        valid_cols = [c for c in cols if c in df_calc.columns]
+        if valid_cols:
+            df_calc[valid_cols] = df_calc[valid_cols].apply(pd.to_numeric, errors='coerce')
+            dim_score = df_calc[valid_cols].mean(axis=1).mean()
+            radar_data.append({'構面名稱': dim_name, '平均分數': dim_score})
+        else:
+            radar_data.append({'構面名稱': dim_name, '平均分數': 0})
+            
+    dim_means_df = pd.DataFrame(radar_data)
+    
+    fig = px.line_polar(dim_means_df, r='平均分數', theta='構面名稱', line_close=True, color_discrete_sequence=[color_dict[color_theme][0]])
+    fig.update_traces(fill='toself', opacity=0.5)
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True, autorange=True)), showlegend=False)
+    
+    col_r1, col_r2 = st.columns([2, 1])
+    with col_r1: st.plotly_chart(fig, use_container_width=True)
+    with col_r2:
+        st.subheader("📊 構面平均分數表")
+        st.caption("註：教練負面行為已自動納入反向計分")
+        st.dataframe(dim_means_df.style.format({'平均分數': '{:.2f}'}), use_container_width=True)
+    st.divider()
+    with st.expander("📄 查看原始資料表"): st.dataframe(f_df)
+    del fig, df_calc
+
+# ==========================================
+# 執行路由門戶 (Router) - 已修正原本的字串判定 Bug
+# ==========================================
+if selected_page == "🌟 核心指標總覽": render_page_1(filtered_df)
+elif selected_page == "📊 自選單題深入探索": render_page_2(filtered_df)
+elif selected_page == "📋 全題項精簡報告": render_page_3(filtered_df)
+elif selected_page == "🧩 題組交叉分析": render_page_4(filtered_df)
+elif selected_page == "🕸️ 八大構面雷達圖": render_page_5(filtered_df)
+
+gc.collect()
