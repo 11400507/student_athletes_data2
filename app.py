@@ -279,7 +279,10 @@ color_dict = {
     "Pastel (粉彩)": px.colors.qualitative.Pastel,
     "Plasma (高對比漸層)": px.colors.sequential.Plasma,
     "Viridis (專業漸層)": px.colors.sequential.Viridis,
-    "Plotly (經典藍)": px.colors.qualitative.Plotly
+    "Plotly (經典藍)": px.colors.qualitative.Plotly,
+    "Sakura (櫻花粉彩)": px.colors.qualitative.Pastel1,      # 內含非常漂亮的粉紅、粉藍與櫻花色調
+    "RdPu (莓果粉紫漸層)": px.colors.sequential.RdPu,         # 從亮粉紅到深紫紅的專業漸層，非常適合樹狀圖
+    "Blues (純淨藍)": px.colors.sequential.Blues             # 備用純色漸層
 }
 
 # ==========================================
