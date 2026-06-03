@@ -283,11 +283,11 @@ color_dict = {
     "Sakura (櫻花粉彩)": px.colors.qualitative.Pastel1,
     "RdPu (莓果粉紫漸層)": px.colors.sequential.RdPu,
     "Blues (純淨藍)": px.colors.sequential.Blues,
-    # ⬇️ 🌟 換成這組正常、不刺眼又有質感的玫瑰粉紅色系 🌟 ⬇️
-    "RosePink (質感玫瑰粉)": [
-        "#EC879E", "#F09AAB", "#E2738E", "#D25D78", "#F5B0BD", 
-        "#C14761", "#F9C5CC", "#B0324B", "#DE6B84", "#EAA0B1",
-        "#C9546E", "#F3AEBC", "#A2233D", "#E68197", "#EE96A9"
+    # ⬇️ 🌟 完美比例：甜美又不刺眼的泡泡糖粉紅色系 🌟 ⬇️
+    "BubbleGum (泡泡糖粉紅)": [
+        "#FF91AF", "#FFA4BA", "#FF7CA0", "#FF6690", "#FFB7C9", 
+        "#E5537D", "#FFC9D7", "#CC406A", "#FF86A7", "#FFAEC0",
+        "#D44973", "#FFBACB", "#B8325C", "#FFA9BD", "#FF9EBC"
     ]
 }
 
