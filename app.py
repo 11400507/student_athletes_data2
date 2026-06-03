@@ -342,7 +342,7 @@ def render_page_1(f_df):
             st.info("💡 請在左側勾選題目以生成旭日圖。")
 
 # ==========================================
-# 頁面 2: 自選單題動態探索 (完結圖例排序 Bug 版)
+# 頁面 2: 自選單題動態探索 (解決圓餅圖排序噴錯版)
 # ==========================================
 def render_page_2(f_df):
     st.header("📊 自選單題動態探索")
@@ -372,7 +372,7 @@ def render_page_2(f_df):
             q_counts['sort_num'] = q_counts['選項代碼 / 數值'].str.extract(r'^(-?\d+)').astype(float)
             q_counts['sort_num'] = q_counts['sort_num'].fillna(9999)
             
-            # 4. 依照提取出來的真正數字大小進行精準排序 (1 < 2 < 10 < 11 < 12)
+            # 4. 依照提取出來的真正數字大小進行精準排序
             q_counts = q_counts.sort_values(by='sort_num', ascending=True)
             
             # 如果是水平長條圖，DataFrame 反轉能讓圖表從上到下呈現 1,2,3...
@@ -389,10 +389,16 @@ def render_page_2(f_df):
                 fig.update_layout(yaxis={'type': 'category', 'categoryorder': 'trace'}, showlegend=False)
                 
             elif chart_type in ["圓餅圖 (Pie)", "甜甜圈圖 (Donut)"]:
-                fig = px.pie(q_counts, names='選項代碼 / 數值', values='次數', hole=(0.4 if "Donut" in chart_type else 0), color_discrete_sequence=color_dict[color_theme])
+                # 🌟 正確的做法：透過 category_orders 將我們辛辛苦苦排好的 list 傳進去
+                fig = px.pie(
+                    q_counts, 
+                    names='選項代碼 / 數值', 
+                    values='次數', 
+                    hole=(0.4 if "Donut" in chart_type else 0), 
+                    color_discrete_sequence=color_dict[color_theme],
+                    category_orders={'選項代碼 / 數值': q_counts['選項代碼 / 數值'].tolist()}
+                )
                 fig.update_traces(textinfo='percent+label')
-                # 🛠️ 加上這行，右側圖例就不會再按照大小亂排了！
-                fig.update_layout(legend={'categoryorder': 'trace'})
                 
             else:
                 fig = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_dict[color_theme])
