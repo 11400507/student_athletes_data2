@@ -281,12 +281,13 @@ color_dict = {
     "Viridis (專業漸層)": px.colors.sequential.Viridis,
     "Plotly (經典藍)": px.colors.qualitative.Plotly,
     "Sakura (櫻花粉彩)": px.colors.qualitative.Pastel1,
-    "RdPu (莓果粉紫漸層)": px.colors.sequential.RdPu, 
-    "Blues (純淨藍)": px.colors.sequential.Blues,    
-    "HotPink (活力桃紅)": [
-        "#FF1493", "#FF69B4", "#FF00FF", "#C71585", "#DB7093", 
-        "#E600A9", "#FF5EA7", "#FF85BF", "#A60067", "#8B008B",
-        "#BA55D3", "#DA70D6", "#FFB6C1", "#FFC0CB", "#FA8072"
+    "RdPu (莓果粉紫漸層)": px.colors.sequential.RdPu,
+    "Blues (純淨藍)": px.colors.sequential.Blues,
+    # ⬇️ 🌟 換成這組正常、不刺眼又有質感的玫瑰粉紅色系 🌟 ⬇️
+    "RosePink (質感玫瑰粉)": [
+        "#EC879E", "#F09AAB", "#E2738E", "#D25D78", "#F5B0BD", 
+        "#C14761", "#F9C5CC", "#B0324B", "#DE6B84", "#EAA0B1",
+        "#C9546E", "#F3AEBC", "#A2233D", "#E68197", "#EE96A9"
     ]
 }
 
