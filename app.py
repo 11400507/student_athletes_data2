@@ -380,7 +380,7 @@ def render_page_2(f_df):
                 # 🛠️ 修正 Treemap 顏色代碼 Bug：轉化為對應主題的色彩清單
                 fig = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_dict[color_theme])
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key=f"chart_page2_{q}")
             with st.expander("📄 查看數據次數分配表"):
                 st.dataframe(q_counts, use_container_width=True)
             st.divider()
