@@ -118,7 +118,7 @@ question_groups = {
     "v46_教練關心身心健康同意程度 (量表)": {"type": "likert", "items": {"v46_1": "我的教練關心我的身體健康", "v46_2": "我的教練關心我的心理健康", "v46_3": "與教練談論身體健康問題很自在", "v46_4": "與教練談論心理健康問題很自在"}},
     "v47_醫療人員照護滿意度 (量表)": {"type": "likert", "items": {"v47_1": "身體健康問題", "v47_2": "心理健康問題"}},
     "v48_過去一個月的感受與想法頻率 (量表)": {"type": "likert", "items": {"v48_1": "覺得自己無法掌控生活中重要的事情", "v48_2": "覺得自己有信心處理個人問題", "v48_3": "覺得事情都照著自己的期望發展", "v48_4": "覺得困難堆積得太多，以至於無法克服"}},
-    "v49_運動成就感與壓力同意程度 (量表)": {"type": "likert", "items": {"v49_1": "我在運動中完成了許多有價值的事情", "v49_2": "我的運動訓練讓我身體非常疲累，難以有精力做其他事", "v49_3": "覺得自己投入在運動上的努力，切更應該花在其他事情上", "v49_4": "我因運動的心理壓力與精神負荷而感到筋疲力盡", "v49_5": "我在運動中的表現達到了自己的能力水準", "v49_6": "我對這項運動的重視程度與以往一樣，甚至更高"}},
+    "v49_運動成就感與壓力同意程度 (量表)": {"type": "likert", "items": {"v49_1": "我在運動中完成了許多有價值的事情", "v49_2": "我的運動訓練讓我身體非常疲累，難以有精力做其他事", "v49_3": "覺得自己投入在運動上的努力，切更應該花在其他事情上", "v49_4": "我因運動的心理壓力與精神負荷而感到筋疲力盡", "v49_5": "我在運動中的表現達達到自己的能力水準", "v49_6": "我對這項運動的重視程度與以往一樣，甚至更高"}},
     "v52_健康餐食取得同意程度 (量表)": {"type": "likert", "items": {"v52_1": "在訓練或比賽結束後，我穩定能取得健康的餐食選擇", "v52_2": "我每天都有時間吃健康的正餐", "v52_3": "我每天都有經濟能力吃健康的正餐"}},
     "v55_典型平日(週一至五)花費時間 (量表)": {"type": "likert", "items": {"v55_1": "上課", "v55_2": "課外學習", "v55_3_1": "運動活動", "v55_3_2": "非運動活動", "v55_4": "其他課外活動", "v55_5": "有薪工作", "v55_6": "社交、放鬆或與家人相處", "v55_7": "睡眠"}},
     "v56_典型週末花費時間 (量表)": {"type": "likert", "items": {"v56_1": "上課", "v56_2": "課外學習", "v56_3_1": "運動活動", "v56_3_2": "非運動活動", "v56_4": "其他課外活動", "v56_5": "有薪工作", "v56_6": "社交、放鬆或與家人相處", "v56_7": "睡眠"}},
@@ -132,58 +132,47 @@ question_groups = {
 }
 
 # ==========================================
-# 🆕 智慧選項翻譯器：根據題號動態將 1,2,3... 翻譯成中文對照標籤
+# 🆕 智慧選項翻譯器
 # ==========================================
 def translate_value(q, val):
     s_val = str(val).strip().replace('.0', '')
     if s_val == '99': return '99 (不適用/未填)'
     
-    # 1. 6點李克特量表 (非常不同意 ~ 非常同意)
     likert_6 = ['v6', 'v15', 'v21', 'v26', 'v27', 'v28', 'v29', 'v30', 'v32', 'v36', 'v41', 'v42', 'v46', 'v52', 'v64']
     if any(q.startswith(p) for p in likert_6):
         return {'1':'1 非常不同意','2':'2 不同意','3':'3 有點不同意','4':'4 有點同意','5':'5 同意','6':'6 非常同意'}.get(s_val, s_val)
         
-    # 2. 6點正負面量表 (非常負面 ~ 非常正面)
     if q.startswith('v14'):
         return {'1':'1 非常負面','2':'2 很負面','3':'3 有點負面','4':'4 有點正面','5':'5 很正面','6':'6 非常正面'}.get(s_val, s_val)
         
-    # 3. v49 運動成就與壓力 (包含反向題意)
     if q.startswith('v49'):
         if q in ['v49_2', 'v49_3', 'v49_4']:
             return {'1':'1 非常同意','2':'2 同意','3':'3 有點同意','4':'4 有點不同意','5':'5 不同意','6':'6 非常不同意'}.get(s_val, s_val)
         else:
             return {'1':'1 非常不同意','2':'2 不同意','3':'3 有點不同意','4':'4 有點同意','5':'5 同意','6':'6 非常同意'}.get(s_val, s_val)
             
-    # 4. 複選與0/1題型 (0否, 1是)
     yes_no_cols = ['v2_', 'v9_', 'v39', 'v40', 'v65', 'v67']
     if any(q.startswith(p) for p in yes_no_cols):
         return {'0':'0 否', '1':'1 是'}.get(s_val, s_val)
         
-    # 5. v17 特別勾選題 (1是, 0否)
     if q.startswith('v17'):
         return {'1':'1 是', '0':'0 否'}.get(s_val, s_val)
 
-    # 6. 平日時間投入 (1=0小時, 9=8+小時)
     if q.startswith('v55'):
         return {'1':'1 (0小時)','2':'2 (1小時)','3':'3 (2小時)','4':'4 (3小時)','5':'5 (4小時)','6':'6 (5小時)','7':'7 (6小時)','8':'8 (7小時)','9':'9 (8+小時)'}.get(s_val, s_val)
         
-    # 7. 週末時間投入 (1=0小時, 9=15+小時)
     if q.startswith('v56'):
         return {'1':'1 (0小時)','2':'2 (1-2小時)','3':'3 (3-4小時)','4':'4 (5-6小時)','5':'5 (7-8小時)','6':'6 (9-10小時)','7':'7 (11-12小時)','8':'8 (13-14小時)','9':'9 (15+小時)'}.get(s_val, s_val)
         
-    # 8. 休賽期與時間希望改變比較
     if q.startswith('v58') or q.startswith('v59'):
         return {'-2':'-2 非常少/少一點', '-1':'-1 比較少/少一點', '0':'0 差不多', '1':'1 比較多/多一點', '2':'2 非常多'}.get(s_val, s_val)
         
-    # 9. v66 學術支援滿意度
     if q.startswith('v66'):
         return {'0':'0 無提供此服務', '1':'1 沒使用過', '2':'2 不滿意', '3':'3 有點不滿意', '4':'4 還算滿意', '5':'5 滿意'}.get(s_val, s_val)
 
-    # 10. v48 頻率中文配對
     if q.startswith('v48'):
         return {'1':'1 從未','2':'2 很少','3':'3 有時','4':'4 經常','5':'5 總是'}.get(s_val, s_val)
 
-    # 11. v71 父母最高教育程度
     if q.startswith('v71'):
         return {
             '1': '1 未完成高中學業', '2': '2 高中畢業', '3': '3 曾就讀大學但未取得學位',
@@ -191,7 +180,6 @@ def translate_value(q, val):
             '7': '7 取得博士或專業學位', '8': '8 不清楚/不知道'
         }.get(s_val, s_val)
 
-    # 12. 獨立單選題精準配對字典
     single_maps = {
         'v3': {'1':'1 先發', '2':'2 候補', '3':'3 訓練但少出場', '4':'4 僅練習未參賽'},
         'v4': {'1':'1 否', '2':'2 部分獎學金', '3':'3 全額獎學金'},
@@ -389,7 +377,8 @@ def render_page_2(f_df):
                 fig = px.pie(q_counts, names='選項代碼 / 數值', values='次數', hole=(0.4 if "Donut" in chart_type else 0), color_discrete_sequence=color_dict[color_theme])
                 fig.update_traces(textinfo='percent+label')
             else:
-                fig = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_theme)
+                # 🛠️ 修正 Treemap 顏色代碼 Bug：轉化為對應主題的色彩清單
+                fig = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_dict[color_theme])
             
             st.plotly_chart(fig, use_container_width=True)
             with st.expander("📄 查看數據次數分配表"):
@@ -432,7 +421,7 @@ def render_page_3(f_df):
         st.divider()
 
 # ==========================================
-# 頁面 4: 題組交叉分析 (Likert優化為堆疊累積圖)
+# 頁面 4: 題組交叉分析 (條件式優化：多題才用堆疊圖)
 # ==========================================
 def render_page_4(f_df):
     st.header("🧩 題組交叉分析")
@@ -468,15 +457,21 @@ def render_page_4(f_df):
                         res_list.append(vc)
                     df_g = pd.concat(res_list).sort_values(by=['題目', '分數'])
                     
-                    # 優化：改成堆疊圖（relative），呈現完美百分比或累積趨勢
-                    fig = px.bar(df_g, x='題目', y='人數', color='分數', barmode='relative', text='人數', color_discrete_sequence=color_dict[color_theme])
+                    # 🛠️ 條件式圖表切換：子題目大於 4 題時才用累積堆疊圖，題目少時維持分組圖
+                    if len(valid_cols) > 4:
+                        fig = px.bar(df_g, x='題目', y='人數', color='分數', barmode='relative', text='人數', color_discrete_sequence=color_dict[color_theme])
+                        st.caption("💡 提示：本題組題目較多，自動切換為「Likert 堆疊累積趨勢圖」呈現。")
+                    else:
+                        fig = px.bar(df_g, x='題目', y='人數', color='分數', barmode='group', text='人數', color_discrete_sequence=color_dict[color_theme])
+                        st.caption("💡 提示：本題組題目較少，自動採用「群組對比長條圖」呈現。")
+                        
                     fig.update_layout(xaxis_title="", yaxis_title="人數", legend_title="得分級別")
                     st.plotly_chart(fig, use_container_width=True)
                 del fig
             st.divider()
 
 # ==========================================
-# 頁面 5: 八大構面雷達圖 (修正反向題Bug)
+# 頁面 5: 八大構面雷達圖
 # ==========================================
 def render_page_5(f_df):
     st.header("🕸️ 八大構面綜合分析")
@@ -498,7 +493,6 @@ def render_page_5(f_df):
     all_needed_cols = [c for cols in dimension_mapping.values() for c in cols if c in f_df.columns]
     df_calc = f_df[all_needed_cols].copy().replace(99, np.nan)
     
-    # 🌟 邏輯修正：將反向題 v28 系列 (總教練負面行為) 進行反向計分 (1->6, 2->5... 等)
     for reverse_col in ['v28_1', 'v28_2', 'v28_3']:
         if reverse_col in df_calc.columns:
             df_calc[reverse_col] = 7 - pd.to_numeric(df_calc[reverse_col], errors='coerce')
@@ -530,7 +524,7 @@ def render_page_5(f_df):
     del fig, df_calc
 
 # ==========================================
-# 執行路由門戶 (Router) - 已修正原本的字串判定 Bug
+# 執行路由門戶 (Router) 
 # ==========================================
 if selected_page == "🌟 核心指標總覽": render_page_1(filtered_df)
 elif selected_page == "📊 自選單題深入探索": render_page_2(filtered_df)
