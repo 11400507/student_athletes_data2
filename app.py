@@ -366,6 +366,10 @@ def render_page_2(f_df):
             # 1. 進行中文選項翻譯
             q_counts['選項代碼 / 數值'] = q_counts['選項代碼 / 數值'].apply(lambda x: translate_value(q, x))
             
+            # 臨時除錯用，請放在 translate_value 後方
+st.write(f"目前 {q} 翻譯後的完整清單：", q_counts['選項代碼 / 數值'].tolist())
+st.write(f"目前 {q} 原始資料型態：", f_df[q].head(5).tolist())
+
             # 2. 🌟 智慧排序防線：自動提取選項開頭的數字或代碼進行真正排序
             def extract_sort_key(x):
                 s = str(x).strip()
