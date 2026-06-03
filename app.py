@@ -342,7 +342,7 @@ def render_page_1(f_df):
             st.info("💡 請在左側勾選題目以生成旭日圖。")
 
 # ==========================================
-# 頁面 2: 自選單題動態探索
+# 頁面 2: 自選單題動態探索 (完美排序優化版)
 # ==========================================
 def render_page_2(f_df):
     st.header("📊 自選單題動態探索")
@@ -363,26 +363,65 @@ def render_page_2(f_df):
             q_counts = f_df[q].value_counts().reset_index()
             q_counts.columns = ['選項代碼 / 數值', '次數']
             
+            # 1. 進行中文選項翻譯
             q_counts['選項代碼 / 數值'] = q_counts['選項代碼 / 數值'].apply(lambda x: translate_value(q, x))
-            q_counts = q_counts.sort_values(by='選項代碼 / 數值')
             
+            # 2. 🌟 智慧排序防線：自動提取選項開頭的數字或代碼進行真正排序
+            def extract_sort_key(x):
+                s = str(x).strip()
+                # 處理負數（例如休賽期的 -1, -2）
+                if s.startswith('-'):
+                    try:
+                        return float(s.split()[0])
+                    except ValueError:
+                        pass
+                # 提取開頭第一個空格前的數字（適用於 "1 非常不同意", "99 (不適用/未填)"）
+                first_word = s.split()[0]
+                try:
+                    # 試著轉成數字
+                    return float(first_word)
+                except ValueError:
+                    # 如果開頭不是數字（例如純文字），就返回文字本身排序
+                    return s
+
+            # 建立一個暫時的排序欄位，確保 "10" 在 "2" 後面，"99" 在最後面
+            q_counts['sort_key'] = q_counts['選項代碼 / 數值'].apply(extract_sort_key)
+            
+            # 根據智慧 key 進行排序
+            if chart_type == "水平長條圖 (Horizontal Bar)":
+                # 水平長條圖通常由下往上畫，所以次數少或編號大的在上面，這裡先依 sort_key 正向排
+                q_counts = q_counts.sort_values(by='sort_key', ascending=True)
+            else:
+                q_counts = q_counts.sort_values(by='sort_key', ascending=True)
+            
+            # ---- 進入繪圖邏輯 ----
             if chart_type == "直立長條圖 (Bar)":
                 fig = px.bar(q_counts, x='選項代碼 / 數值', y='次數', text='次數', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
-                fig.update_layout(xaxis_type='category', showlegend=False)
+                # 強制讓 Plotly X 軸的順序完全服從 DataFrame 目前的順序，不要自己亂重排
+                fig.update_layout(xaxis={'type': 'category', 'categoryorder': 'trace'}, showlegend=False)
+                
             elif chart_type == "水平長條圖 (Horizontal Bar)":
-                q_counts = q_counts.sort_values(by='次數', ascending=True)
+                # 為了讓水平長條圖從上到下是 1, 2, 3, 4, 5...
                 fig = px.bar(q_counts, y='選項代碼 / 數值', x='次數', text='次數', orientation='h', color='選項代碼 / 數值', color_discrete_sequence=color_dict[color_theme])
-                fig.update_layout(yaxis_type='category', showlegend=False)
+                fig.update_layout(yaxis={'type': 'category', 'categoryorder': 'trace'}, showlegend=False)
+                
             elif chart_type in ["圓餅圖 (Pie)", "甜甜圈圖 (Donut)"]:
+                # 圓餅圖的圖例（Legend）也會乖乖按照 12345 排序
                 fig = px.pie(q_counts, names='選項代碼 / 數值', values='次數', hole=(0.4 if "Donut" in chart_type else 0), color_discrete_sequence=color_dict[color_theme])
                 fig.update_traces(textinfo='percent+label')
+                
             else:
-                # 🛠️ 修正 Treemap 顏色代碼 Bug：轉化為對應主題的色彩清單
+                # 修正後的 Treemap，不再直接丟中文字串給連續漸層，直接使用色彩清單
                 fig = px.treemap(q_counts, path=['選項代碼 / 數值'], values='次數', color='次數', color_continuous_scale=color_dict[color_theme])
             
+            # 加上唯一的 key 避免重複元件 ID 報錯
             st.plotly_chart(fig, use_container_width=True, key=f"chart_page2_{q}")
+            
+            # 移除暫時的排序欄位，維持數據分配表的美觀
+            display_df = q_counts.drop(columns=['sort_key'])
             with st.expander("📄 查看數據次數分配表"):
-                st.dataframe(q_counts, use_container_width=True)
+                st.dataframe(display_df, use_container_width=True)
+                
             st.divider()
             del fig
 
