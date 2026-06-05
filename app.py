@@ -334,7 +334,7 @@ st.sidebar.divider()
 
 st.sidebar.header("⚙️ 儀表板全域篩選")
 all_sports = df['運動項目'].dropna().unique().tolist()
-default_sports = [s for s in ['體操', '田徑', '游泳', '籃球', '羽球'] if s in all_sports]
+default_sports = [s for s in ['田徑', '棒球', '籃球', '羽球', '桌球'] if s in all_sports]
 if not default_sports: default_sports = all_sports[:5]
 selected_sports = st.sidebar.multiselect("📌 選擇分析的運動項目：", options=all_sports, default=default_sports)
 
@@ -344,7 +344,7 @@ if filtered_df.empty:
     st.stop()
 
 # ==========================================
-# 頁面 1: 核心指標總覽
+# 頁面 1: 核心指標總覽 (最完美彈性 + 全自動中文化版)
 # ==========================================
 def render_page_1(f_df):
     st.header("🌟 核心指標總覽")
@@ -352,15 +352,38 @@ def render_page_1(f_df):
     st.sidebar.subheader("🎨 視覺與圖表設定")
     color_theme = st.sidebar.selectbox("配色主題：", list(color_dict.keys()))
     
-    available_cols = [col for col in f_df.columns if col != '運動項目']
-    sunburst_options = ['運動項目'] + available_cols
-    default_sunburst = [s for s in ['v67_1', 'v2_1', '運動項目'] if s in sunburst_options]
+    # 1. 建立複本，並計算一個額外的「綜合身分分類」供高級分析使用
+    plot_df = f_df.copy()
+    
+    def combine_identity(row):
+        identities = []
+        if str(row.get('v2_1', '0')).strip().replace('.0', '') == '1': identities.append('臺灣人')
+        if str(row.get('v2_2', '0')).strip().replace('.0', '') == '1': identities.append('原住民')
+        if str(row.get('v2_3', '0')).strip().replace('.0', '') == '1': identities.append('新住民')
+        if not identities: return '未填/其他'
+        return "+".join(identities)
+
+    plot_df['身分分類'] = plot_df.apply(combine_identity, axis=1)
+    
+    # 2. 🌟 重新整理下拉清單：保留所有原始 v 題號（包括 v1, v2_1 等），同時加入綜合身分
+    # 移除 ID 這種無意義的流水號欄位即可
+    sunburst_options = [c for c in plot_df.columns if c != 'ID']
+    
+    # 調整順序，讓最常用的核心變數排在最前面，方便選取
+    core_order = ['v1', '身分分類', 'v2_1', 'v2_2', 'v2_3', 'v75', 'v74']
+    sunburst_options = core_order + [c for c in sunburst_options if c not in core_order]
+    
+    # 預設旭日圖階層：v1 (運動項目) ➡️ v2_1 (臺灣人) ➡️ v75 (性別)
+    default_sunburst = ['v1', 'v2_1', 'v75']
+    
     sunburst_paths = st.sidebar.multiselect(
-        "🎯 旭日圖階層 (由內向外)：", options=sunburst_options, default=default_sunburst[:3],
+        "🎯 旭日圖階層 (由內向外)：", options=sunburst_options, default=default_sunburst,
         format_func=lambda x: f"{x} {get_q_name(x)}" if x in full_q_dict or 'v71' in str(x) else x
     )
 
-    sport_counts = f_df['運動項目'].value_counts().reset_index()
+    # 左側極座標玫瑰圖直接綁定 v1，並自動套用中文化名稱
+    # 為了畫玫瑰圖，我們先準備好中文對照的運動項目欄位
+    sport_counts = plot_df['v1'].astype(str).str.replace('.0', '', regex=False).apply(lambda x: translate_value('v1', x)).value_counts().reset_index()
     sport_counts.columns = ['運動項目', '樣本數']
     
     col1, col2 = st.columns(2)
@@ -376,15 +399,28 @@ def render_page_1(f_df):
         st.subheader("☀️ 各變數描述統計")
         st.caption("多層級互動旭日圖")
         if sunburst_paths:
-            df_sun = f_df[list(set(sunburst_paths))].copy()
-            for path_col in sunburst_paths:
-                df_sun[path_col] = df_sun[path_col].astype(str).str.replace('.0', '', regex=False).replace({'99': '99 (不適用/未填)'})
-                if path_col == 'v67_1': df_sun[path_col] = df_sun[path_col].replace({'1': '有家庭資助', '0': '無家庭資助'})
-                elif path_col == 'v2_1': df_sun[path_col] = df_sun[path_col].replace({'1': '臺灣人', '0': '非臺灣人'})
+            # 複製選定的階層資料
+            df_sun = plot_df[sunburst_paths].copy()
             
-            fig_sunburst = px.sunburst(df_sun, path=sunburst_paths, color=sunburst_paths[0], color_discrete_sequence=color_dict[color_theme], labels=full_q_dict)
+            # 🌟 全自動智慧翻譯閘門 🌟
+            for path_col in sunburst_paths:
+                # 只有新造的 '身分分類' 本身就是中文，其餘全部丟給翻譯器
+                if path_col == '身分分類':
+                    continue
+                
+                # 呼叫全域 translate_value 函數，把 1, 2, 3 或 0, 1 全自動洗成帶有編號的中文
+                df_sun[path_col] = df_sun[path_col].apply(lambda x: translate_value(path_col, x))
+            
+            # 畫出完美中文化的旭id圖
+            fig_sunburst = px.sunburst(
+                df_sun, 
+                path=sunburst_paths, 
+                color=sunburst_paths[0], 
+                color_discrete_sequence=color_dict[color_theme], 
+                labels=full_q_dict
+            )
             fig_sunburst.update_traces(textinfo='label+percent parent')
-            st.plotly_chart(fig_sunburst, use_container_width=True)
+            st.plotly_chart(fig_sunburst, use_container_width=True, key="page1_sunburst_ultimate")
             del fig_sunburst, df_sun
         else:
             st.info("💡 請在左側勾選題目以生成旭日圖。")
